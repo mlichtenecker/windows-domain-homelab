@@ -39,8 +39,8 @@ dynamische Arbeitsspeicher abgeschaltet, weil FreeBSD damit nicht umgehen kann.
 Dort ist außerdem Secure Boot deaktiviert, während die Windows-Maschinen mit
 Secure Boot und virtuellem TPM laufen.
 
-FS01 hat eine zweite virtuelle Festplatte für die Freigaben, FW01 zwei
-Netzwerkkarten für LAN und WAN.
+FS01 hat eine zweite virtuelle Festplatte für die Freigaben, DC01 eine zweite
+für die Systemzustandssicherung, FW01 zwei Netzwerkkarten für LAN und WAN.
 
 ## DNS
 
@@ -113,6 +113,9 @@ Schnittstellen damit oft nicht zurechtkommen. Zu Testzwecken habe ich es
 trotzdem einmal mit Umlaut ausprobiert. Active Directory selbst nimmt den Namen
 an.
 
+Dazu kommt das Dienstkonto `svc-backup` in einer eigenen OU Dienstkonten, siehe
+Abschnitt Datensicherung.
+
 ## Gruppen
 
 - Global: G-Vertrieb, G-Buchhaltung, G-Helpdesk
@@ -165,5 +168,87 @@ FW01 läuft als NTP-Server auf dem LAN-Interface und ist auf DC01 als Zeitquelle
 eingetragen. Die Clients bekommen ihre Zeit über die Domäne vom
 Domänencontroller.
 
-Bei DC01 ist in den Hyper-V-Einstellungen die Zeitsynchronisierung mit dem Host
-abgeschaltet, damit nicht zwei Quellen gleichzeitig an der Uhr drehen.
+Auf DC01 ist die Firewall fest als Quelle eingetragen:
+
+```
+w32tm /config /manualpeerlist:"10.10.10.1,0x8" /syncfromflags:manual /reliable:yes /update
+```
+
+Auf der Firewall ist bei allen vier Zeitservern die Option Iburst gesetzt, siehe
+[Störungsbericht 3](stoerungsberichte/03-dc-nimmt-zeit-nicht-an.md).
+
+Bei allen drei Windows-Maschinen ist in den Hyper-V-Einstellungen die
+Zeitsynchronisierung mit dem Host abgeschaltet, damit nicht zwei Quellen
+gleichzeitig an der Uhr drehen. Solange sie aktiv ist, meldet
+`w32tm /query /source` den *VM IC Time Synchronization Provider* statt der
+Domäne. Den Haken zu entfernen genügt allerdings nicht, der Zeitdienst übernimmt
+die neue Quelle erst nach einem Neustart:
+
+```
+Restart-Service w32time
+w32tm /resync
+w32tm /query /source
+```
+
+Danach steht auf FS01 und CL01 `DC01.ad.mlab.internal` und auf DC01 die
+Firewall.
+
+## Datensicherung
+
+Die Verfahren und die gemessenen Wiederherstellungszeiten stehen in
+[backup.md](backup.md), hier die Einstellungen.
+
+### Dienstkonto
+
+| | |
+|---|---|
+| Konto | `svc-backup` in OU=Dienstkonten,OU=MLAB |
+| Gruppen | Sicherungsoperatoren und Administratoren (beide Builtin) |
+| Auf FS01 | zusätzlich in der lokalen Administratorengruppe |
+| Kennwort | läuft nicht ab |
+| Verwendet von | Veeam und Windows Server Backup |
+
+Die Sicherungsoperatoren genügen für die Systemzustandssicherung. Veeam braucht
+zusätzlich Administratorrechte auf dem gesicherten Server. Die Builtin-Gruppe
+Administratoren wirkt nur auf Domänencontrollern, deshalb steht das Konto auf
+dem Mitgliedsserver FS01 außerdem in dessen lokaler Administratorengruppe:
+
+```
+net localgroup Administrators MLAB\svc-backup /add
+```
+
+### Windows Server Backup auf DC01
+
+| | |
+|---|---|
+| Umfang | Systemzustand (NTDS, SYSVOL, Registrierung, Startdateien) |
+| Ziel | zweite virtuelle Festplatte, Laufwerk E: |
+| Zeitplan | keiner, wird von Hand gestartet |
+| Wiederherstellung | über den Verzeichnisdienst-Wiederherstellungsmodus (DSRM) |
+
+### AD-Papierkorb
+
+Im Active Directory Administrative Center aktiviert. Lässt sich nicht mehr
+abschalten. Gelöschte Objekte liegen im Container *Deleted Objects* und werden
+dort über *Restore* zurückgeholt.
+
+### Veeam
+
+| | |
+|---|---|
+| Version | Backup & Replication 13 Community Edition, Build 13.1.1.18 |
+| Verfahren | agentenbasiert, weil Hyper-V unter Windows 11 keine hostbasierte Sicherung erlaubt |
+| Repository | Direct attached storage, Microsoft Windows, Ordner `VeeamBackup` |
+| Datenträger | externe SSD WD Elements, 465 GB, Laufwerk F: |
+| Schutzgruppe | Lab-Server mit DC01 und FS01 |
+| Auftrag | Lab-Täglich, täglich 22:00, gesamter Rechner |
+| Aufbewahrung | 7 Wiederherstellungspunkte |
+| Dateien | `.vbk` Vollsicherung, `.vib` Inkrement, `.vbm` Metadaten |
+
+Daraus ergibt sich ein RPO von 24 Stunden.
+
+### OPNsense
+
+Die vollständige Konfiguration wird unter *System > Configuration > Backups* als
+XML-Datei heruntergeladen. Sie liegt bewusst nicht im Repo, weil darin
+Kennworthashes, Zertifikate und Schlüssel stehen.

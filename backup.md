@@ -12,8 +12,8 @@ und keines die anderen ersetzt.
 | Ein kompletter Server ist verloren | Veeam Backup & Replication |
 | Die Firewall muss neu aufgesetzt werden | Konfigurationssicherung von OPNsense |
 
-Die Veeam-Sicherungen laufen auf eine externe SSD von Western Digital, die am
-Host-PC hängt. Eine eigene physische Platte war mir wichtig: Liegt die Sicherung
+Die Veeam-Sicherungen laufen auf eine externe SSD von Western Digital mit 465 GB,
+die am Host-PC hängt. Eine eigene physische Platte war mir wichtig: Liegt die Sicherung
 dort, wo auch die virtuellen Maschinen liegen, schützt sie zwar vor
 versehentlichem Löschen, nicht aber vor einem Plattenausfall.
 
@@ -28,12 +28,17 @@ Registrierung und die Startdateien.
 Vorher habe ich in einer eigenen OU Dienstkonten das Konto `svc-backup` angelegt
 und in die Gruppe Sicherungsoperatoren aufgenommen. Sicherungssoftware muss
 naturgemäß auf alle Daten zugreifen können, und dafür wollte ich nicht den
-Administrator verwenden. Viel weniger Rechte hat dieses Konto allerdings nicht,
-denn wer die AD-Datenbank sichern und zurückspielen darf, kommt darüber an alles
-heran. Der eigentliche Gewinn liegt darin, dass die Aufgabe ein eigenes Konto hat
-und sich im Nachhinein nachvollziehen lässt, welcher Zugriff von der Sicherung
-kam und welcher von einem Administrator. Dasselbe Konto verwendet später auch
-Veeam.
+Administrator selbst verwenden. Für den Systemzustand reicht das, Veeam braucht
+zusätzlich Administratorrechte auf dem Server, den es sichert. Solche Rechte
+gelten immer nur für einen Rechner: Auf DC01 hat das Konto sie bereits über die
+Domäne, auf FS01 musste ich es eigens in die Administratorengruppe des Servers
+aufnehmen.
+
+Ein eingeschränktes Konto ist das damit nicht, das ist mir bewusst. Wer die
+AD-Datenbank sichern und zurückspielen darf, kommt ohnehin an alles heran. Der
+Vorteil liegt darin, dass die Sicherung ein eigenes Konto hat und sich im
+Nachhinein nachvollziehen lässt, welcher Zugriff von ihr kam und welcher von
+einem Administrator.
 
 ![Das Dienstkonto svc-backup in der eigenen OU Dienstkonten](screenshots/35-svc-backup.png)
 
@@ -121,8 +126,8 @@ aus, ist der jüngste Stand der von Mittwochabend, und ein Arbeitstag ist weg. D
 sieben Punkte reichen außerdem nur eine Woche zurück: Wer erst nach zehn Tagen
 bemerkt, dass in einer Datei etwas falsch ist, kommt an die ältere Fassung nicht
 mehr heran. Nach dem Großvater-Vater-Sohn-Prinzip kämen dafür wöchentliche und
-monatliche Stände dazu. Auf einer einzelnen externen Platte wäre dafür aber kein
-Platz gewesen, deshalb habe ich es bei den sieben Punkten belassen.
+monatliche Stände dazu. Für ein Lab, in dem keine echten Daten liegen, habe ich
+darauf verzichtet und es bei den sieben Punkten belassen.
 
 ![Der Ordner auf der externen SSD mit Vollsicherung, Inkrement und Metadaten](screenshots/25-veeam-repository.png)
 
