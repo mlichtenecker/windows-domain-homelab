@@ -13,7 +13,9 @@ Behandelte Themen:
 - Gruppenrichtlinien, DNS und DHCP
 - OPNsense: Regelwerk mit Aliasen, NAT und NTP als Zeitquelle für Kerberos
 - NTFS- und Freigabeberechtigungen auf dem Fileserver
-- Fehlersuche an zwei dokumentierten Störungsfällen
+- Datensicherung mit Windows Server Backup, dem AD-Papierkorb, Veeam sowie der
+  Konfigurationssicherung der Firewall, jeweils mit Restore-Test
+- Fehlersuche an vier dokumentierten Störungsfällen
 
 ![Netzplan der Testumgebung](screenshots/02-netzplan.png)
 
@@ -50,14 +52,14 @@ stehen in [technische-details.md](technische-details.md).
 Die beiden Server habe ich bewusst in der englischen Version installiert.
 Fehlermeldungen lassen sich damit genau so übernehmen, wie sie auf dem
 Bildschirm stehen, und die Microsoft-Dokumentation sowie die meisten
-Forenbeiträge beziehen sich ohnehin auf die englischen Bezeichnungen. Das
-erspart bei der Fehlersuche den Umweg über die Rückübersetzung, bei der man
-schnell auf dem falschen Suchbegriff landet. Der Client läuft dagegen auf
-Deutsch, wie er auch bei einem Anwender stehen würde.
+Forenbeiträge beziehen sich ohnehin auf die englischen Bezeichnungen.
+Der Client läuft dagegen auf Deutsch, so wie er auch an einem
+Anwenderarbeitsplatz stehen würde.
 
 Vor der weiteren Konfiguration habe ich auf allen vier Maschinen die
-verfügbaren Updates eingespielt, damit ich nicht später mitten in der
-Einrichtung neu starten muss.
+verfügbaren System- und Sicherheitsupdates eingespielt. Das schließt bekannte
+Sicherheitslücken direkt zu Beginn und verhindert ungeplante Neustarts mitten
+in der Einrichtung.
 
 ![Die vier VMs im Hyper-V-Manager](screenshots/01-hyperv-uebersicht.png)
 
@@ -254,7 +256,7 @@ Screenshot zeigt.
 
 Zum Abschluss habe ich die Domäne mit `dcdiag /c` durchgeprüft, also erst
 nachdem alle Rollen standen und die Tests durch waren. Die vollständige Ausgabe
-liegt als [dcdiag.txt](dcdiag.txt) im Repo.
+liegt als [dcdiag-01-09.txt](dcdiag-01-09.txt) im Repo.
 
 Die für Active Directory relevanten Prüfungen, darunter DNS, Replikation, FSMO
 und SysVol, waren erfolgreich. Bei einem einzelnen Domänencontroller prüft die
@@ -266,23 +268,45 @@ Systemprotokoll innerhalb eines begrenzten Zeitfensters, unabhängig davon ob si
 mit Active Directory zu tun haben. Darunter sind die DHCP-Meldungen aus
 [Störungsbericht 1](stoerungsberichte/01-dhcp-nicht-autorisiert.md).
 
+Die Prüfung habe ich später noch zweimal wiederholt. Im Lauf vom 08.09.
+([dcdiag-08-09.txt](dcdiag-08-09.txt)) stand im Systemprotokoll die Meldung des
+Zeitdienstes, aus der
+[Störungsbericht 3](stoerungsberichte/03-dc-nimmt-zeit-nicht-an.md) geworden ist.
+Im Lauf vom 09.09. ([dcdiag-09-09.txt](dcdiag-09-09.txt)), nachdem alle
+Störungen behoben waren, ist auch `SystemLog` erfolgreich.
+
+## Backup
+
+Für vier verschiedene Ausfallszenarien habe ich vier Verfahren eingerichtet: den
+AD-Papierkorb für ein einzelnes gelöschtes Objekt, Windows Server Backup für den
+Systemzustand des Domänencontrollers, Veeam für die kompletten Server und die
+Konfigurationssicherung von OPNsense für die Firewall.
+
+Jedes der vier Verfahren habe ich auch tatsächlich zurückgespielt und dabei die
+Zeiten gemessen. Zuletzt habe ich die Firewall aus der XML-Sicherung auf einer
+neu installierten Maschine wiederhergestellt.
+
+Der Aufbau, die eingesetzten Verfahren und die gemessenen Zeiten stehen in
+[backup.md](backup.md).
+
 ## Offene Punkte
 
-1. Backup mit Windows Server Backup und Veeam, jeweils mit Restore-Test
-2. Monitoring auf einem eigenen Linux-System
-3. Automatisierung wiederkehrender Aufgaben mit PowerShell
-4. Netzsegmentierung mit VLANs und ein eigenes Netz für die Clients
-5. Anbindung an Microsoft 365 und Entra ID
+1. Monitoring auf einem eigenen Linux-System
+2. Automatisierung wiederkehrender Aufgaben mit PowerShell
+3. Netzsegmentierung mit VLANs und ein eigenes Netz für die Clients
+4. Anbindung an Microsoft 365 und Entra ID
 
 Dazu kommen kleinere Punkte am Regelwerk und an der Serverkonfiguration.
 
 ## Störungsberichte
 
-Zwei Fehler, die ich selbst eingegrenzt und behoben habe:
+Vier Fehler, die ich selbst eingegrenzt und behoben habe:
 
 1. [DHCP zeigt einen roten Pfeil, obwohl der Server autorisiert ist](stoerungsberichte/01-dhcp-nicht-autorisiert.md)
 2. [Das Regelwerk greift nicht, weil eine Default-Regel darüber steht](stoerungsberichte/02-firewall-regelwerk-greift-nicht.md)
+3. [Der Domänencontroller nimmt die Zeit der Firewall nicht an](stoerungsberichte/03-dc-nimmt-zeit-nicht-an.md)
+4. [Veeam bietet keine virtuellen Maschinen zum Sichern an](stoerungsberichte/04-veeam-findet-keine-vms.md)
 
 ---
 
-Aufgebaut Ende August 2026, zuletzt ergänzt Anfang September.
+Aufgebaut Ende August 2026, zuletzt ergänzt am 12. September 2026.
